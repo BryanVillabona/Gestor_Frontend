@@ -1,6 +1,6 @@
 import apiClient from '../config/axios.config';
 
-export const getDashboardKPIs = async () => {
+const getDashboardKPIs = async () => {
   try {
     const { data } = await apiClient.get('/reports/dashboard-kpis');
     return data;
@@ -10,7 +10,7 @@ export const getDashboardKPIs = async () => {
   }
 };
 
-export const getTotalPortfolio = async () => {
+const getTotalPortfolio = async () => {
   try {
     const { data } = await apiClient.get('/reports/total-portfolio');
     return data;
@@ -20,7 +20,7 @@ export const getTotalPortfolio = async () => {
   }
 };
 
-export const getInventoryAlerts = async () => {
+const getInventoryAlerts = async () => {
   try {
     const { data } = await apiClient.get('/reports/inventory-alerts');
     return data;
@@ -28,4 +28,21 @@ export const getInventoryAlerts = async () => {
     console.error('Error fetching alerts:', error);
     return [];
   }
+};
+
+const getCustomerPortfolio = async (customerId) => {
+  try {
+    const { data } = await apiClient.get(`/reports/customer-portfolio/${customerId}`);
+    return data;
+  } catch (error) {
+    console.error('Error al obtener cartera del cliente:', error);
+    throw error.response?.data || error;
+  }
+};
+
+export { 
+  getDashboardKPIs, 
+  getTotalPortfolio, 
+  getInventoryAlerts, 
+  getCustomerPortfolio 
 };
