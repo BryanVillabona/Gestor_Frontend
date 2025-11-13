@@ -40,9 +40,23 @@ const getCustomerPortfolio = async (customerId) => {
   }
 };
 
+const getSalesByDateRange = async (startDate, endDate) => {
+  try {
+    // Pasamos las fechas como query params
+    const { data } = await apiClient.get('/reports/sales-by-date', {
+      params: { startDate, endDate },
+    });
+    return data;
+  } catch (error) {
+    console.error('Error al obtener reporte de ventas:', error);
+    throw error.response?.data || error;
+  }
+};
+
 export { 
   getDashboardKPIs, 
   getTotalPortfolio, 
   getInventoryAlerts, 
-  getCustomerPortfolio 
+  getCustomerPortfolio,
+  getSalesByDateRange,
 };
