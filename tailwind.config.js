@@ -5,32 +5,24 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   
-  // ¡AQUÍ ESTÁ LA OTRA PARTE CLAVE!
+  // AÑADE TODO ESTE BLOQUE "theme" Y "darkMode"
   darkMode: "class", 
   theme: {
     extend: {
       colors: {
-        // Color principal (amarillo)
-        "primary": "#FFC107", 
-        
-        // Color de fondo
+        "primary": "#FFC107", // El amarillo de los mockups
         "background-light": "#f6f7f8",
         "background-dark": "#101a22",
-        
-        // Colores de los otros mockups (Ventas, Clientes)
-        "primary-blue": "#1392ec", // El azul
+        "primary-blue": "#1392ec", // El azul de otros mockups
         "success": "#2ecc71",
-        "danger": "#e74c3c", // Para eliminar
-        "verde-stock": "#28A745", // El verde de "Añadir Stock"
-
-        // Colores de texto
+        "danger": "#e74c3c", 
+        "verde-stock": "#28A745", // Verde del botón de stock
         "text-main": "#111518",
         "text-muted": "#617989",
         "border-light": "#dbe1e6",
       },
       fontFamily: {
-        // La fuente "Inter"
-        "display": ["Inter", "sans-serif"]
+        "display": ["Inter", "sans-serif"] // La fuente de los mockups
       }
     },
   },

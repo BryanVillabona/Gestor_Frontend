@@ -1,21 +1,46 @@
 <!doctype html>
 <html lang="es">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link href="https://fonts.googleapis.com" rel="preconnect" />
-  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-  <title>Gestor de Emprendimiento</title>
-</head>
-
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
-
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      rel="stylesheet"
+    />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#FFC107",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101a22",
+              "primary-blue": "#1392ec",
+              "success": "#2ecc71",
+              "danger": "#e74c3c",
+              "verde-stock": "#28A745",
+              "text-main": "#111518",
+              "text-muted": "#617989",
+              "border-light": "#dbe1e6",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"] // Esto jalará la fuente Inter
+            }
+          }
+        }
+      }
+    </script>
+    
+    <title>Gestor de Emprendimiento</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
