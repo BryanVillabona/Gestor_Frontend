@@ -10,6 +10,13 @@
       rel="stylesheet"
     />
     
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap"
+      rel="stylesheet"
+    />
+
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script>
@@ -18,19 +25,24 @@
         theme: {
           extend: {
             colors: {
-              "primary": "#FFC107",
+              // ¡CAMBIADO! Primary ahora es el azul profesional
+              "primary": "#1392ec", 
+              "primary-light": "#1392ec", // Alias por si acaso
+              
               "background-light": "#f6f7f8",
               "background-dark": "#101a22",
-              "primary-blue": "#1392ec",
               "success": "#2ecc71",
-              "danger": "#e74c3c",
+              "danger": "#e74c3c", 
               "verde-stock": "#28A745",
+              "amarillo-original": "#FFC107", // Guardamos el amarillo por si acaso
+              
               "text-main": "#111518",
               "text-muted": "#617989",
               "border-light": "#dbe1e6",
             },
             fontFamily: {
-              "display": ["Inter", "sans-serif"] // Esto jalará la fuente Inter
+              // Ahora esto funcionará porque la fuente está importada
+              "display": ["Inter", "sans-serif"] 
             }
           }
         }

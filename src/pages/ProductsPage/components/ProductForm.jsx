@@ -93,7 +93,7 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
         </button>
         <button
           type="submit"
-          className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-gray-800 text-sm font-bold"
+          className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold transition-colors hover:bg-primary/90"
         >
           Guardar
         </button>
