@@ -40,7 +40,7 @@ const CustomerForm = ({ customer, onSubmit, onCancel }) => {
           value={formData.name}
           onChange={handleChange}
           required
-          placeholder="Ej: Tia Marina"
+          placeholder="Ej: Nombre Apellido"
           className="form-input ... h-12 ..."
         />
       </label>
@@ -75,7 +75,7 @@ const CustomerForm = ({ customer, onSubmit, onCancel }) => {
           name="notes"
           value={formData.notes}
           onChange={handleChange}
-          placeholder="Ej: Paga los sábados"
+          placeholder="Ej: Paga los Lunes"
           className="form-textarea ... "
           rows="3"
         ></textarea>
