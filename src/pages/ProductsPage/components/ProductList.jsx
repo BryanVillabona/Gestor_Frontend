@@ -8,6 +8,7 @@ import {
 } from '../../../services/products.service';
 import Modal from '../../../components/ui/Modal';
 import ProductForm from './ProductForm';
+import { toast } from 'react-hot-toast'; // Importamos toast
 
 // Formateador de moneda
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -24,7 +25,10 @@ const ProductList = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null); // null = Crear, objeto = Editar
 
-    // 3. Función para cargar (o recargar) los productos
+    // 3. ¡CORRECCIÓN! Faltaba este estado para el modal de borrado
+    const [productToDelete, setProductToDelete] = useState(null);
+
+    // 4. Función para cargar (o recargar) los productos
     const fetchProducts = async () => {
         try {
             setIsLoading(true);
@@ -42,18 +46,18 @@ const ProductList = () => {
         fetchProducts();
     }, []);
 
-    // 4. Funciones para abrir/cerrar el modal
+    // 5. Funciones para abrir/cerrar el modal de CREAR/EDITAR
     const handleOpenModal = (product = null) => {
-        setSelectedProduct(product); // Si es null, es 'crear'. Si tiene producto, es 'editar'.
+        setSelectedProduct(product);
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setSelectedProduct(null); // Limpiamos el producto seleccionado
+        setSelectedProduct(null);
     };
 
-    // 5. Función para manejar el guardado (Crear o Editar)
+    // 6. Función para manejar el guardado (Crear o Editar)
     const handleSaveProduct = async (productData) => {
         try {
             if (selectedProduct) {
@@ -65,28 +69,35 @@ const ProductList = () => {
             }
             fetchProducts(); // Recargamos la lista de productos
             handleCloseModal(); // Cerramos el modal
+            
+            // ¡CORRECCIÓN! Añadimos el toast de éxito
+            toast.success(selectedProduct ? 'Producto actualizado' : 'Producto creado');
+            
         } catch (error) {
             console.error('Error al guardar producto:', error);
-            alert(`Error: ${error.message || 'No se pudo guardar el producto'}`);
+            // Usamos toast de error
+            toast.error(`Error: ${error.message || 'No se pudo guardar el producto'}`);
         }
     };
 
-    // 6. Función para manejar la eliminación
-    const handleDeleteProduct = async (productId) => {
-        // Pedimos confirmación
-        if (window.confirm('¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.')) {
-            try {
-                await deleteProduct(productId);
-                fetchProducts(); // Recargamos la lista
-            } catch (error) {
-                console.error('Error al eliminar producto:', error);
-                alert(`Error: ${error.message || 'No se pudo eliminar el producto'}`);
-            }
+    // 7. Función para manejar la eliminación (se llama desde el modal)
+    const handleConfirmDelete = async () => {
+        if (!productToDelete) return;
+
+        try {
+            await deleteProduct(productToDelete._id);
+            fetchProducts(); // Recargamos la lista
+            toast.success('Producto eliminado correctamente');
+        } catch (error) {
+            console.error('Error al eliminar producto:', error);
+            toast.error(`Error: ${error.message || 'No se pudo eliminar el producto'}`);
+        } finally {
+            setProductToDelete(null); // Cierra el modal de confirmación
         }
     };
 
 
-    if (isLoading && !isModalOpen) {
+    if (isLoading && !isModalOpen && !productToDelete) {
         return <p className="p-4">Cargando productos...</p>;
     }
 
@@ -107,23 +118,18 @@ const ProductList = () => {
             </div>
 
             {/* --- VISTA MÓVIL (TARJETAS) --- */}
-            {/* Se muestra por defecto y se oculta en pantallas medianas (md:hidden) */}
             <div className="px-4 py-3 space-y-4 md:hidden">
                 {products.length > 0 ? (
                     products.map((product) => (
                         <article key={product._id} className="bg-white dark:bg-gray-800 rounded-lg shadow border border-border-light dark:border-gray-700 p-4">
-                            {/* Nombre (Principal) */}
-                            <h4 className="text-lg font-bold text-text-main dark:text-white mb-2">
+                            {/* ... (Nombre, Precio, Descripción) ... */}
+                             <h4 className="text-lg font-bold text-text-main dark:text-white mb-2">
                                 {product.name}
                             </h4>
-
-                            {/* Precio */}
                             <div className="flex justify-between text-sm border-b border-border-light dark:border-gray-700 py-2">
                                 <span className="text-text-muted dark:text-gray-400 font-medium">Precio</span>
                                 <span className="text-text-main dark:text-gray-200">{currencyFormatter.format(product.unitPrice)}</span>
                             </div>
-
-                            {/* Descripción */}
                             <div className="text-sm py-2">
                                 <span className="text-text-muted dark:text-gray-400 font-medium">Descripción</span>
                                 <p className="text-text-main dark:text-gray-200 mt-1">{product.description || 'N/A'}</p>
@@ -135,7 +141,11 @@ const ProductList = () => {
                                     <span className="material-symbols-outlined text-base">edit</span>
                                     <span className="font-bold text-sm">Editar</span>
                                 </button>
-                                <button onClick={() => handleDeleteProduct(product._id)} className="flex items-center gap-1 text-danger dark:text-danger/90 hover:opacity-80">
+                                {/* ¡MODIFICADO! Este botón ahora abre el modal de borrado */}
+                                <button 
+                                    onClick={() => setProductToDelete(product)} 
+                                    className="flex items-center gap-1 text-danger dark:text-danger/90 hover:opacity-80"
+                                >
                                     <span className="material-symbols-outlined text-base">delete</span>
                                     <span className="font-bold text-sm">Eliminar</span>
                                 </button>
@@ -150,7 +160,6 @@ const ProductList = () => {
             </div>
 
             {/* --- VISTA DESKTOP (TABLA) --- */}
-            {/* Se oculta por defecto y se muestra como tabla en pantallas medianas (hidden md:block) */}
             <div className="px-4 py-3 hidden md:block">
                 <div className="flex overflow-hidden rounded-lg border border-border-light dark:border-gray-700 bg-white dark:bg-background-dark">
                     <table className="flex-1">
@@ -180,7 +189,11 @@ const ProductList = () => {
                                                 <span className="material-symbols-outlined text-base">edit</span>
                                                 <span className="font-bold text-sm">Editar</span>
                                             </button>
-                                            <button onClick={() => handleDeleteProduct(product._id)} className="flex items-center gap-1 text-danger dark:text-danger/90 hover:opacity-80">
+                                            {/* ¡MODIFICADO! Este botón ahora abre el modal de borrado */}
+                                            <button 
+                                                onClick={() => setProductToDelete(product)} 
+                                                className="flex items-center gap-1 text-danger dark:text-danger/90 hover:opacity-80"
+                                            >
                                                 <span className="material-symbols-outlined text-base">delete</span>
                                             </button>
                                         </div>
@@ -192,7 +205,7 @@ const ProductList = () => {
                 </div>
             </div>
 
-            {/* --- Modal (sin cambios) --- */}
+            {/* --- Modal (Crear/Editar Producto) --- */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
@@ -204,6 +217,38 @@ const ProductList = () => {
                     onSubmit={handleSaveProduct}
                     onCancel={handleCloseModal}
                 />
+            </Modal>
+            
+            {/* ¡CORRECCIÓN! Este es el Modal de Confirmación de Borrado que faltaba */}
+            <Modal
+                isOpen={!!productToDelete}
+                onClose={() => setProductToDelete(null)}
+                title="Confirmar Eliminación"
+            >
+                <div className="space-y-6">
+                    <p className="text-gray-700 dark:text-gray-300">
+                        ¿Estás seguro de que quieres eliminar el producto 
+                        <strong className="text-gray-900 dark:text-white"> {productToDelete?.name}</strong>?
+                        <br/>
+                        Esta acción no se puede deshacer.
+                    </p>
+                    <footer className="flex justify-end gap-4 pt-4">
+                        <button
+                            type="button"
+                            onClick={() => setProductToDelete(null)}
+                            className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-bold"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleConfirmDelete}
+                            className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-danger text-white text-sm font-bold transition-colors hover:bg-opacity-90"
+                        >
+                            Eliminar
+                        </button>
+                    </footer>
+                </div>
             </Modal>
         </section>
     );

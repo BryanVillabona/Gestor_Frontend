@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { getProducts } from '../../../services/products.service';
 import { getCustomers } from '../../../services/customers.service';
 import { createSale } from '../../../services/sales.service';
@@ -52,7 +53,7 @@ const NewSaleForm = () => {
     // --- Lógica del Carrito (CORREGIDA CON VALIDACIÓN DE STOCK) ---
     const handleAddItemToCart = () => {
         if (!currentItem.productId || currentItem.quantity <= 0) {
-            alert('Selecciona un producto y una cantidad válida.');
+            toast.error('Selecciona un producto y una cantidad válida.');
             return;
         }
 
@@ -67,8 +68,8 @@ const NewSaleForm = () => {
         if (currentFormat === 'paquete') {
             // VALIDACIÓN de paquete
             if (!product.packageUnits || product.packageUnits <= 0 || product.packagePrice === undefined || product.packagePrice < 0) {
-                alert(`Error: El producto "${product.name}" no tiene un precio de paquete válido (Unidades y Precio) configurado en la sección de Productos.`);
-                return; // Detiene la ejecución
+                toast.error(`Error: El producto "${product.name}" no tiene un precio de paquete válido...`);
+                return;
             }
             // ej: 1 (cartón) * 30 (unidades) = 30
             quantityToSell = qty * product.packageUnits;
@@ -94,14 +95,14 @@ const NewSaleForm = () => {
 
         // 2c. ¡LA VALIDACIÓN!
         if ((quantityToSell + quantityAlreadyInCart) > currentStock) {
-            alert(
-                `¡Stock insuficiente para "${product.name}"!\n\n` +
-                `Stock Actual: ${currentStock} unidades\n` +
-                `En Carrito: ${quantityAlreadyInCart} unidades\n` +
-                `Quieres Añadir: ${quantityToSell} unidades`
+            // Reemplazamos alert por toast.error (con un \n para salto de línea)
+            toast.error(
+                `¡Stock insuficiente para "${product.name}"!\nStock: ${currentStock}u. | En Carrito: ${quantityAlreadyInCart}u.`
             );
-            return; // <-- DETIENE LA EJECUCIÓN ANTES DE AÑADIR AL CARRITO
-        }
+            return;
+        
+        } // <-- ¡¡AQUÍ ESTABA EL ERROR!! Faltaba este '}'
+        
         // ----- FIN DE LA VALIDACIÓN -----
 
 
@@ -177,7 +178,7 @@ const NewSaleForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (cart.length === 0) {
-            alert('Debes añadir al menos un producto a la venta.');
+            toast.error('Debes añadir al menos un producto a la venta.');
             return;
         }
         
@@ -196,7 +197,7 @@ const NewSaleForm = () => {
 
         try {
             await createSale(saleDTO);
-            alert('¡Venta registrada exitosamente!');
+            toast.success('¡Venta registrada exitosamente!');
             setCart([]);
             setSaleData({
                 customerId: customers[0]?._id || '',
@@ -221,7 +222,7 @@ const NewSaleForm = () => {
                 errorMessage = error.message;
             }
 
-            alert(`Error al crear la venta: ${errorMessage}`);
+            toast.error(`Error al crear la venta: ${errorMessage}`);
         }
     };
 

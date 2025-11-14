@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 // 1. Importamos todo lo necesario
 import { getInventory, addStock } from '../../../services/inventory.service';
 import { getProducts } from '../../../services/products.service'; // Para el dropdown
@@ -59,7 +60,7 @@ const StockList = () => {
             handleCloseModal(); // Cerramos el modal
         } catch (error) {
             console.error('Error al añadir stock:', error);
-            alert(`Error: ${error.message || 'No se pudo añadir el stock'}`);
+            toast.error(`Error: ${error.message || 'No se pudo añadir el stock'}`);
         }
     };
 

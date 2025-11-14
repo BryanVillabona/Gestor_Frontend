@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { getCustomers } from '../../../services/customers.service';
 import { createPayment } from '../../../services/payments.service';
 import { getCustomerPortfolio } from '../../../services/reports.service';
@@ -52,7 +53,7 @@ const PortfolioManager = () => {
                 ...paymentData,
                 amount: Number(paymentData.amount)
             });
-            alert('¡Abono registrado exitosamente!');
+            toast.success('¡Abono registrado exitosamente!');
             // Limpia el formulario
             setPaymentData(prev => ({ ...prev, amount: '' }));
             // Refresca la consulta de saldo si es el mismo cliente
@@ -60,7 +61,7 @@ const PortfolioManager = () => {
                 handlePortfolioSubmit();
             }
         } catch (error) {
-            alert(`Error al registrar abono: ${error.message || 'Error'}`);
+            toast.error(`Error al registrar abono: ${error.message || 'Error'}`);
         }
     };
 
@@ -68,7 +69,7 @@ const PortfolioManager = () => {
     const handlePortfolioSubmit = async (e) => {
         if (e) e.preventDefault(); // Permite llamarlo sin evento
         if (!selectedCustomerId) {
-            alert('Selecciona un cliente');
+            toast.success('Selecciona un cliente');
             return;
         }
         try {
@@ -76,7 +77,7 @@ const PortfolioManager = () => {
             const data = await getCustomerPortfolio(selectedCustomerId);
             setPortfolio(data);
         } catch (error) {
-            alert(`Error al consultar cartera: ${error.message || 'Error'}`);
+            toast.error(`Error al consultar cartera: ${error.message || 'Error'}`);
         } finally {
             setIsLoadingPortfolio(false);
         }

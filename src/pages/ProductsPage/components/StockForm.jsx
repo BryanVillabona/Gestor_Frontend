@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 
-/**
- * Formulario para Añadir Stock (Registrar Entrada).
- * @param {array} products - Lista de todos los productos (para el dropdown).
- * @param {function} onSubmit - Función que se llama al guardar.
- * @param {function} onCancel - Función que se llama al cancelar.
- */
 const StockForm = ({ products, onSubmit, onCancel }) => {
   // Estado para los campos del formulario
   const [productId, setProductId] = useState(products[0]?._id || ''); // Selecciona el primer producto por defecto
@@ -15,7 +10,7 @@ const StockForm = ({ products, onSubmit, onCancel }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!productId || !quantity) {
-      alert('Por favor, selecciona un producto y una cantidad.');
+      toast.error('Por favor, selecciona un producto y una cantidad.');
       return;
     }
     onSubmit({

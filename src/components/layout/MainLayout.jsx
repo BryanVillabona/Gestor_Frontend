@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header'; // Importamos el nuevo Header
+import { Toaster } from 'react-hot-toast';
 
 const MainLayout = () => {
   // Estado para controlar el menú móvil
@@ -20,9 +21,8 @@ const MainLayout = () => {
       {/* Sidebar Móvil (Tipo Cajón/Drawer) */}
       {/* Este usa las clases de Tailwind para transición y aparecer/desaparecer */}
       <div
-        className={`fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <aside className="w-64 h-full bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 flex flex-col">
           <Sidebar
@@ -41,12 +41,16 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col">
         {/* Header (Solo para Móvil) */}
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        
+
         {/* HTML Semántico <main> para el contenido */}
         <main className="flex-1 p-6 lg:p-10">
           <Outlet />
         </main>
       </div>
+
+      {/* 2. Añadir el Toaster aquí. Se superpondrá a todo. */}
+      <Toaster position="top-right" reverseOrder={false} />
+
     </div>
   );
 };

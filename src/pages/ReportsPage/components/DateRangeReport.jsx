@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { getSalesByDateRange } from '../../../services/reports.service';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -33,7 +34,7 @@ const DateRangeReport = () => {
             const data = await getSalesByDateRange(dates.startDate, dates.endDate);
             setReportData(data);
         } catch (error) {
-            alert(`Error al generar reporte: ${error.message || 'Error'}`);
+            toast.error(`Error al generar reporte: ${error.message || 'Error'}`);
         } finally {
             setIsLoading(false);
         }
