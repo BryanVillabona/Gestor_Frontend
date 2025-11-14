@@ -16,7 +16,13 @@ const NewSaleForm = () => {
     const [products, setProducts] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [inventory, setInventory] = useState([]);
-    const [cart, setCart] = useState([]); 
+    const [cart, setCart] = useState([]);
+
+    // --- ESTADOS NUEVOS ---
+    const [saleType, setSaleType] = useState('mostrador'); // 'mostrador' o 'cliente'
+    const [genericCustomerId, setGenericCustomerId] = useState(null); // ID de "Cliente Varios"
+    // --- FIN ESTADOS NUEVOS ---
+
     const [saleData, setSaleData] = useState({
         customerId: '',
         amountPaid: 0,
@@ -39,18 +45,52 @@ const NewSaleForm = () => {
             setProducts(productsData);
             setCustomers(customersData);
             setInventory(inventoryData);
-            // Setea el primer cliente y producto por defecto si existen
-            if (customersData.length > 0) {
-                setSaleData(prev => ({ ...prev, customerId: customersData[0]._id }));
+
+            // Lógica para encontrar 'Cliente Varios'
+            const genericCustomer = customersData.find(c => c.name.toLowerCase() === 'cliente varios');
+            
+            if (genericCustomer) {
+                setGenericCustomerId(genericCustomer._id);
+                // Asignar customerId por defecto basado en el saleType INICIAL ('mostrador')
+                setSaleData(prev => ({ ...prev, customerId: genericCustomer._id }));
+            } else {
+                toast.error("¡ACCIÓN REQUERIDA! Debes crear un cliente llamado 'Cliente Varios'", { duration: 6000 });
             }
+
             if (productsData.length > 0) {
                 setCurrentItem(prev => ({ ...prev, productId: productsData[0]._id }));
             }
         };
         loadDropdowns();
-    }, []);
+    }, []); // El array vacío [] asegura que se ejecute solo una vez
 
-    // --- Lógica del Carrito (CORREGIDA CON VALIDACIÓN DE STOCK) ---
+
+    // --- LÓGICA CORREGIDA: Manejador de evento ---
+    // Esto se ejecuta SÓLO cuando el usuario hace clic en el botón de tipo de venta.
+    const handleSaleTypeChange = (newType) => {
+        setSaleType(newType); // 1. Setear el tipo
+
+        if (newType === 'mostrador') {
+            // 2. Si es mostrador, setea el cliente genérico y resetea el pago
+            setSaleData(prev => ({
+                ...prev,
+                customerId: genericCustomerId, // Asigna ID genérico
+                amountPaid: 0 // Resetea. El render se encargará de mostrar el total
+            }));
+        } else {
+            // 3. Si es cliente, busca el primer cliente REAL y resetea el pago
+            const firstRealCustomer = customers.find(c => c._id !== genericCustomerId);
+            setSaleData(prev => ({
+                ...prev,
+                customerId: firstRealCustomer ? firstRealCustomer._id : '', // Asigna primer real
+                amountPaid: 0 // Resetea para gestión de cartera
+            }));
+        }
+    };
+    // --- FIN LÓGICA CORREGIDA ---
+
+
+    // --- Lógica del Carrito (Sin cambios, ya estaba bien) ---
     const handleAddItemToCart = () => {
         if (!currentItem.productId || currentItem.quantity <= 0) {
             toast.error('Selecciona un producto y una cantidad válida.');
@@ -60,32 +100,23 @@ const NewSaleForm = () => {
         const product = products.find(p => p._id === currentItem.productId);
         if (!product) return;
 
-        const qty = Number(currentItem.quantity); // Cantidad de "formatos" (ej. 1 cartón o 5 unidades)
-        
-        // 1. Calcular la cantidad REAL de unidades a vender (¡Esto va PRIMERO!)
+        const qty = Number(currentItem.quantity);
         let quantityToSell; 
 
         if (currentFormat === 'paquete') {
-            // VALIDACIÓN de paquete
             if (!product.packageUnits || product.packageUnits <= 0 || product.packagePrice === undefined || product.packagePrice < 0) {
                 toast.error(`Error: El producto "${product.name}" no tiene un precio de paquete válido...`);
                 return;
             }
-            // ej: 1 (cartón) * 30 (unidades) = 30
             quantityToSell = qty * product.packageUnits;
         
         } else {
-            // Venta por UNIDAD (ej: 5)
             quantityToSell = qty;
         }
 
-        // 2. ----- INICIO DE LA VALIDACIÓN DE STOCK -----
-
-        // 2a. Busca el inventario de este producto
         const inventoryItem = inventory.find(item => item.productId?._id === product._id);
         const currentStock = inventoryItem ? inventoryItem.currentStock : 0;
 
-        // 2b. Calcula cuánto hay ya en el carrito (por si añaden el mismo producto varias veces)
         let quantityAlreadyInCart = 0;
         cart.forEach(item => {
             if (item.productId === product._id) {
@@ -93,68 +124,50 @@ const NewSaleForm = () => {
             }
         });
 
-        // 2c. ¡LA VALIDACIÓN!
         if ((quantityToSell + quantityAlreadyInCart) > currentStock) {
-            // Reemplazamos alert por toast.error (con un \n para salto de línea)
             toast.error(
                 `¡Stock insuficiente para "${product.name}"!\nStock: ${currentStock}u. | En Carrito: ${quantityAlreadyInCart}u.`
             );
             return;
+        }
         
-        } // <-- ¡¡AQUÍ ESTABA EL ERROR!! Faltaba este '}'
-        
-        // ----- FIN DE LA VALIDACIÓN -----
-
-
-        // 3. --- Si pasa la validación, CREA el 'itemToAdd' ---
         let itemToAdd;
-
         if (currentFormat === 'paquete') {
             itemToAdd = {
                 productId: product._id,
                 productName: `${product.name} (${product.packageName || 'Paquete'})`,
-                // ¡IMPORTANTE! Usamos la variable ya calculada
                 quantity: quantityToSell,
                 lineTotal: qty * product.packagePrice, 
             };
         } else {
-            // Venta por UNIDAD
             itemToAdd = {
                 productId: product._id,
                 productName: `${product.name} (Unidad)`,
-                // ¡IMPORTANTE! Usamos la variable ya calculada
                 quantity: quantityToSell,
                 lineTotal: qty * product.unitPrice, 
             };
         }
 
-        // 4. --- Lógica de agrupar en Carrito (esto queda igual) ---
         const existingItem = cart.find(item => item.productName === itemToAdd.productName);
-
         let newCart;
         if (existingItem) {
-            // Si ya existe, actualiza cantidad y total
             newCart = cart.map(item =>
                 item.productName === itemToAdd.productName
                     ? { 
                         ...item, 
                         quantity: item.quantity + itemToAdd.quantity,
-                        lineTotal: item.lineTotal + itemToAdd.lineTotal // Suma los totales
+                        lineTotal: item.lineTotal + itemToAdd.lineTotal
                       }
                     : item
             );
         } else {
-            // Si no existe, añádelo
             newCart = [...cart, itemToAdd];
         }
         
-        // ¡USA newCart y arregla el bug!
         setCart(newCart); 
     };
-    // --- FIN DE LA FUNCIÓN MODIFICADA ---
-
+    
     const handleRemoveItemFromCart = (productName) => {
-        // Elimina por 'productName' que es nuestra 'key' única
         setCart(cart.filter(item => item.productName !== productName));
     };
 
@@ -169,10 +182,22 @@ const NewSaleForm = () => {
         setCurrentItem(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- Cálculo de Totales (Arregla el NaN) ---
-    // Ahora suma los 'lineTotal' que SÍ existen en el carrito
+
+    // --- CÁLCULO DE TOTALES (LÓGICA CORREGIDA) ---
+    // Se calculan estas variables en CADA RENDER. Esto es lo correcto.
     const totalAmount = cart.reduce((sum, item) => sum + item.lineTotal, 0);
-    const amountPending = totalAmount - (Number(saleData.amountPaid) || 0);
+    const isMostrador = saleType === 'mostrador';
+    
+    // El monto pagado "efectivo" se CALCULA, no se guarda en state
+    const effectiveAmountPaid = isMostrador ? totalAmount : (Number(saleData.amountPaid) || 0);
+    
+    // El cliente "efectivo" se CALCULA
+    const effectiveCustomerId = isMostrador ? genericCustomerId : saleData.customerId;
+
+    // El pendiente se calcula sobre el monto efectivo
+    const amountPending = totalAmount - effectiveAmountPaid;
+    // --- FIN CÁLCULO DE TOTALES ---
+
 
     // --- Envío de la Venta (Corregido) ---
     const handleSubmit = async (e) => {
@@ -182,38 +207,58 @@ const NewSaleForm = () => {
             return;
         }
         
-        // El DTO ahora coincide con lo que el backend espera
+        // --- Validaciones antes de enviar ---
+        if (isMostrador && !genericCustomerId) {
+            toast.error("No se puede registrar. Falta configurar el 'Cliente Varios'.");
+            return;
+        }
+        if (!isMostrador && !effectiveCustomerId) { // Usa effectiveId
+            toast.error('Por favor, selecciona un cliente para la venta a cartera.');
+            return;
+        }
+
         const saleDTO = {
-            customerId: saleData.customerId,
-            amountPaid: Number(saleData.amountPaid),
+            customerId: effectiveCustomerId,  // <-- USA EFECTIVO
+            amountPaid: effectiveAmountPaid, // <-- USA EFECTIVO
             paymentMethod: saleData.paymentMethod,
             items: cart.map(item => ({
                 productId: item.productId,
                 quantity: item.quantity,
-                lineTotal: item.lineTotal,       // <-- ENVIAMOS EL TOTAL
-                productName: item.productName,  // <-- ENVIAMOS EL NOMBRE
+                lineTotal: item.lineTotal,
+                productName: item.productName,
             })),
         };
 
         try {
             await createSale(saleDTO);
             toast.success('¡Venta registrada exitosamente!');
-            setCart([]);
-            setSaleData({
-                customerId: customers[0]?._id || '',
-                amountPaid: 0,
-                paymentMethod: 'Efectivo',
-            });
-            // REFRESCA EL INVENTARIO DESPUÉS DE UNA VENTA EXITOSA
+            setCart([]); // Esto setea totalAmount a 0
+
+            // --- MODIFICADO: Resetear formulario ---
+            if (isMostrador) {
+                setSaleData({
+                    customerId: genericCustomerId, // Re-selecciona cliente genérico
+                    amountPaid: 0, // El carrito es 0, el total es 0, el pago es 0
+                    paymentMethod: 'Efectivo',
+                });
+            } else {
+                // Resetear a "Venta Cliente"
+                const firstRealCustomer = customers.find(c => c._id !== genericCustomerId);
+                setSaleData({
+                    customerId: firstRealCustomer ? firstRealCustomer._id : '',
+                    amountPaid: 0,
+                    paymentMethod: 'Efectivo',
+                });
+            }
+            // --- FIN MODIFICADO ---
+
+            // Recargar inventario
             const inventoryData = await getInventory();
             setInventory(inventoryData);
             
         } catch (error) {
-            // Esta es tu lógica de error corregida, está perfecta.
             console.error('Objeto de error detallado:', error);
-            
             let errorMessage = 'Error desconocido';
-            
             if (error.details) { 
                 errorMessage = error.details.join(', ');
             } else if (error.error) { 
@@ -221,7 +266,6 @@ const NewSaleForm = () => {
             } else if (error.message) { 
                 errorMessage = error.message;
             }
-
             toast.error(`Error al crear la venta: ${errorMessage}`);
         }
     };
@@ -232,26 +276,73 @@ const NewSaleForm = () => {
             {/* Columna Izquierda: Formulario */}
             <div className="lg:col-span-2 space-y-8">
 
+                {/* --- NUEVO: Toggle de Tipo de Venta --- */}
+                <div className="flex w-full max-w-sm rounded-lg bg-gray-200 dark:bg-gray-800 p-1">
+                    <button
+                        type="button"
+                        onClick={() => handleSaleTypeChange('mostrador')} // <-- USA EL HANDLER
+                        className={`w-1/2 rounded-md py-2 text-sm font-bold transition-all ${
+                            saleType === 'mostrador'
+                            ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
+                            : 'text-gray-500 hover:bg-white/50 dark:hover:bg-gray-700/50'
+                        }`}
+                    >
+                        Venta de Mostrador
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSaleTypeChange('cliente')} // <-- USA EL HANDLER
+                        className={`w-1/2 rounded-md py-2 text-sm font-bold transition-all ${
+                            saleType === 'cliente'
+                            ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
+                            : 'text-gray-500 hover:bg-white/50 dark:hover:bg-gray-700/50'
+                        }`}
+                    >
+                        Venta a Cliente (Cartera)
+                    </button>
+                </div>
+                {/* --- FIN NUEVO --- */}
+
                 {/* Datos Generales */}
                 <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-border-light dark:border-gray-700">
                     <h3 className="text-gray-900 dark:text-white text-lg font-bold mb-4">
                         Datos Generales
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="flex flex-col w-full">
-                            <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Cliente</p>
-                            <select
-                                name="customerId"
-                                value={saleData.customerId}
-                                onChange={handleFormChange}
-                                required
-                                className="form-select h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
-                            >
-                                {customers.map(c => (
-                                    <option key={c._id} value={c._id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </label>
+                        
+                        {/* --- MODIFICADO: Dropdown Condicional de Cliente --- */}
+                        {isMostrador ? (
+                            <label className="flex flex-col w-full">
+                                <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Cliente</p>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value="Cliente Varios" // Muestra "Cliente Varios"
+                                    className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+                                />
+                            </label>
+                        ) : (
+                            <label className="flex flex-col w-full">
+                                <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Cliente</p>
+                                <select
+                                    name="customerId"
+                                    value={saleData.customerId} // Controlado por el state
+                                    onChange={handleFormChange}
+                                    required
+                                    className="form-select h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
+                                >
+                                    <option value="">Selecciona un cliente...</option>
+                                    {customers
+                                        .filter(c => c._id !== genericCustomerId) // Oculta "Cliente Varios"
+                                        .map(c => (
+                                            <option key={c._id} value={c._id}>{c.name}</option>
+                                        ))}
+                                </select>
+                            </label>
+                        )}
+                        {/* --- FIN MODIFICADO --- */}
+
                         <label className="flex flex-col w-full">
                             <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Fecha de Venta</p>
                             <input
@@ -264,7 +355,7 @@ const NewSaleForm = () => {
                     </div>
                 </section>
 
-                {/* Añadir Productos */}
+                {/* Añadir Productos (Sin cambios en esta sección) */}
                 <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-border-light dark:border-gray-700">
                     <h3 className="text-gray-900 dark:text-white text-lg font-bold mb-4">
                         Añadir Productos
@@ -314,10 +405,7 @@ const NewSaleForm = () => {
                             />
                         </label>
                         <div className="flex flex-col w-full md:w-auto">
-                            {/* 2. Añadimos un <p> invisible que ocupe el mismo espacio que los otros labels */}
                             <p className="text-sm font-medium pb-2 invisible">Añadir</p>
-                            
-                            {/* 3. Este es tu botón, no cambia */}
                             <button
                                 type="button"
                                 onClick={handleAddItemToCart}
@@ -329,11 +417,10 @@ const NewSaleForm = () => {
                         </div>
                     </div>
 
-                    {/* Carrito */}
+                    {/* Carrito (Sin cambios) */}
                     <div className="mt-6 flow-root">
                         <ul className="-my-4 divide-y divide-gray-200 dark:divide-gray-800">
                             {cart.map(item => (
-                                // ¡KEY CORREGIDA! Usa productName que es único
                                 <li key={item.productName} className="flex items-center py-4">
                                     <div className="flex-1">
                                         <p className="text-gray-900 dark:text-white font-medium">{item.productName}</p>
@@ -343,7 +430,6 @@ const NewSaleForm = () => {
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <p className="font-semibold text-gray-900 dark:text-white">
-                                            {/* ¡TOTAL CORREGIDO! Muestra el lineTotal */}
                                             {currencyFormatter.format(item.lineTotal)}
                                         </p>
                                         <button type="button" onClick={() => handleRemoveItemFromCart(item.productName)} className="text-gray-400 hover:text-red-500">
@@ -365,7 +451,6 @@ const NewSaleForm = () => {
                     <div className="space-y-2 border-b border-gray-200 dark:border-gray-800 pb-4">
                         <div className="flex justify-between font-bold text-lg">
                             <p className="text-gray-900 dark:text-white">Total</p>
-                            {/* ¡TOTAL CORREGIDO! Usa la variable totalAmount (que ya no es NaN) */}
                             <p className="text-gray-900 dark:text-white">{currencyFormatter.format(totalAmount)}</p>
                         </div>
                     </div>
@@ -377,10 +462,13 @@ const NewSaleForm = () => {
                                 name="amountPaid"
                                 type="number"
                                 min="0"
-                                max={totalAmount || 0} // Asegura que max nunca sea NaN
-                                value={saleData.amountPaid}
+                                max={totalAmount || 0}
+                                // --- MODIFICADO: Muestra el valor efectivo ---
+                                value={effectiveAmountPaid} 
                                 onChange={handleFormChange}
-                                className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
+                                // --- MODIFICADO: Deshabilitar si es venta de mostrador ---
+                                disabled={isMostrador}
+                                className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-800/50"
                             />
                         </label>
 
@@ -389,6 +477,7 @@ const NewSaleForm = () => {
                                 Monto Pendiente
                             </p>
                             <p className={`text-sm font-bold ${amountPending > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                                {/* --- MODIFICADO: Muestra el pendiente efectivo --- */}
                                 {currencyFormatter.format(amountPending)}
                             </p>
                         </div>
@@ -412,7 +501,12 @@ const NewSaleForm = () => {
                     <div className="flex flex-col gap-3 pt-4">
                         <button
                             type="submit"
-                            className="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2 transition-colors hover:bg-primary/90"
+                            // --- MODIFICADO: Lógica de deshabilitar botón ---
+                            disabled={
+                                (isMostrador && !genericCustomerId) || // No se puede vender si no hay cliente genérico
+                                (!isMostrador && !effectiveCustomerId) // No se puede vender si no hay cliente seleccionado
+                            }
+                            className="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2 transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className="material-symbols-outlined">save</span>
                             Guardar Venta
