@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getProducts } from '../../../services/products.service';
 import { getCustomers } from '../../../services/customers.service';
 import { createSale } from '../../../services/sales.service';
+import { getInventory } from '../../../services/inventory.service';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -13,7 +14,8 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 const NewSaleForm = () => {
     const [products, setProducts] = useState([]);
     const [customers, setCustomers] = useState([]);
-    const [cart, setCart] = useState([]); // El "carrito de compras"
+    const [inventory, setInventory] = useState([]);
+    const [cart, setCart] = useState([]); 
     const [saleData, setSaleData] = useState({
         customerId: '',
         amountPaid: 0,
@@ -28,12 +30,14 @@ const NewSaleForm = () => {
     // --- Carga de Datos (Dropdowns) ---
     useEffect(() => {
         const loadDropdowns = async () => {
-            const [productsData, customersData] = await Promise.all([
+            const [productsData, customersData, inventoryData] = await Promise.all([
                 getProducts(),
                 getCustomers(),
+                getInventory()
             ]);
             setProducts(productsData);
             setCustomers(customersData);
+            setInventory(inventoryData);
             // Setea el primer cliente y producto por defecto si existen
             if (customersData.length > 0) {
                 setSaleData(prev => ({ ...prev, customerId: customersData[0]._id }));
@@ -45,7 +49,7 @@ const NewSaleForm = () => {
         loadDropdowns();
     }, []);
 
-    // --- Lógica del Carrito (CORREGIDA) ---
+    // --- Lógica del Carrito (CORREGIDA CON VALIDACIÓN DE STOCK) ---
     const handleAddItemToCart = () => {
         if (!currentItem.productId || currentItem.quantity <= 0) {
             alert('Selecciona un producto y una cantidad válida.');
@@ -55,23 +59,61 @@ const NewSaleForm = () => {
         const product = products.find(p => p._id === currentItem.productId);
         if (!product) return;
 
-        const qty = Number(currentItem.quantity); // Cantidad de "formatos" (ej. 2 cartones)
-        let itemToAdd;
+        const qty = Number(currentItem.quantity); // Cantidad de "formatos" (ej. 1 cartón o 5 unidades)
+        
+        // 1. Calcular la cantidad REAL de unidades a vender (¡Esto va PRIMERO!)
+        let quantityToSell; 
 
-        // --- Lógica de lineTotal (para evitar decimales y NaN) ---
         if (currentFormat === 'paquete') {
-            // VALIDACIÓN
+            // VALIDACIÓN de paquete
             if (!product.packageUnits || product.packageUnits <= 0 || product.packagePrice === undefined || product.packagePrice < 0) {
                 alert(`Error: El producto "${product.name}" no tiene un precio de paquete válido (Unidades y Precio) configurado en la sección de Productos.`);
                 return; // Detiene la ejecución
             }
-            
+            // ej: 1 (cartón) * 30 (unidades) = 30
+            quantityToSell = qty * product.packageUnits;
+        
+        } else {
+            // Venta por UNIDAD (ej: 5)
+            quantityToSell = qty;
+        }
+
+        // 2. ----- INICIO DE LA VALIDACIÓN DE STOCK -----
+
+        // 2a. Busca el inventario de este producto
+        const inventoryItem = inventory.find(item => item.productId?._id === product._id);
+        const currentStock = inventoryItem ? inventoryItem.currentStock : 0;
+
+        // 2b. Calcula cuánto hay ya en el carrito (por si añaden el mismo producto varias veces)
+        let quantityAlreadyInCart = 0;
+        cart.forEach(item => {
+            if (item.productId === product._id) {
+                quantityAlreadyInCart += item.quantity;
+            }
+        });
+
+        // 2c. ¡LA VALIDACIÓN!
+        if ((quantityToSell + quantityAlreadyInCart) > currentStock) {
+            alert(
+                `¡Stock insuficiente para "${product.name}"!\n\n` +
+                `Stock Actual: ${currentStock} unidades\n` +
+                `En Carrito: ${quantityAlreadyInCart} unidades\n` +
+                `Quieres Añadir: ${quantityToSell} unidades`
+            );
+            return; // <-- DETIENE LA EJECUCIÓN ANTES DE AÑADIR AL CARRITO
+        }
+        // ----- FIN DE LA VALIDACIÓN -----
+
+
+        // 3. --- Si pasa la validación, CREA el 'itemToAdd' ---
+        let itemToAdd;
+
+        if (currentFormat === 'paquete') {
             itemToAdd = {
                 productId: product._id,
                 productName: `${product.name} (${product.packageName || 'Paquete'})`,
-                // Cantidad total de huevos (ej: 2 * 30 = 60)
-                quantity: qty * product.packageUnits,
-                // Total de la línea (ej: 2 * 13000 = 26000)
+                // ¡IMPORTANTE! Usamos la variable ya calculada
+                quantity: quantityToSell,
                 lineTotal: qty * product.packagePrice, 
             };
         } else {
@@ -79,14 +121,13 @@ const NewSaleForm = () => {
             itemToAdd = {
                 productId: product._id,
                 productName: `${product.name} (Unidad)`,
-                // Cantidad total de huevos (ej: 5)
-                quantity: qty,
-                // Total de la línea (ej: 5 * 450 = 2250)
+                // ¡IMPORTANTE! Usamos la variable ya calculada
+                quantity: quantityToSell,
                 lineTotal: qty * product.unitPrice, 
             };
         }
 
-        // --- Lógica de Carrito Corregida (Arregla el bug de 'key' y 'newCart') ---
+        // 4. --- Lógica de agrupar en Carrito (esto queda igual) ---
         const existingItem = cart.find(item => item.productName === itemToAdd.productName);
 
         let newCart;
@@ -109,6 +150,7 @@ const NewSaleForm = () => {
         // ¡USA newCart y arregla el bug!
         setCart(newCart); 
     };
+    // --- FIN DE LA FUNCIÓN MODIFICADA ---
 
     const handleRemoveItemFromCart = (productName) => {
         // Elimina por 'productName' que es nuestra 'key' única
@@ -161,28 +203,25 @@ const NewSaleForm = () => {
                 amountPaid: 0,
                 paymentMethod: 'Efectivo',
             });
+            // REFRESCA EL INVENTARIO DESPUÉS DE UNA VENTA EXITOSA
+            const inventoryData = await getInventory();
+            setInventory(inventoryData);
+            
         } catch (error) {
-            // ----- INICIO DE LA MODIFICACIÓN -----
-            console.error('Objeto de error detallado:', error); // <-- Añade este log
+            // Esta es tu lógica de error corregida, está perfecta.
+            console.error('Objeto de error detallado:', error);
             
             let errorMessage = 'Error desconocido';
             
-            // error.details viene del validador Joi (Backend)
             if (error.details) { 
                 errorMessage = error.details.join(', ');
-            
-            // error.error viene de tu servicio (Backend)
             } else if (error.error) { 
                 errorMessage = error.error;
-            
-            // error.message es el fallback de Axios
             } else if (error.message) { 
                 errorMessage = error.message;
             }
 
-            // Muestra el mensaje de error real
             alert(`Error al crear la venta: ${errorMessage}`);
-            // ----- FIN DE LA MODIFICACIÓN -----
         }
     };
 
@@ -273,14 +312,20 @@ const NewSaleForm = () => {
                                 className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             />
                         </label>
-                        <button
-                            type="button"
-                            onClick={handleAddItemToCart}
-                            className="bg-primary/20 text-primary h-12 px-6 rounded-lg text-sm font-bold flex items-center justify-center gap-2 w-full md:w-auto transition-colors hover:bg-primary/30"
-                        >
-                            <span className="material-symbols-outlined">add_shopping_cart</span>
-                            <span>Añadir</span>
-                        </button>
+                        <div className="flex flex-col w-full md:w-auto">
+                            {/* 2. Añadimos un <p> invisible que ocupe el mismo espacio que los otros labels */}
+                            <p className="text-sm font-medium pb-2 invisible">Añadir</p>
+                            
+                            {/* 3. Este es tu botón, no cambia */}
+                            <button
+                                type="button"
+                                onClick={handleAddItemToCart}
+                                className="bg-primary/20 text-primary h-12 px-6 rounded-lg text-sm font-bold flex items-center justify-center gap-2 w-full md:w-auto transition-colors hover:bg-primary/30"
+                            >
+                                <span className="material-symbols-outlined">add_shopping_cart</span>
+                                <span>Añadir</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Carrito */}
