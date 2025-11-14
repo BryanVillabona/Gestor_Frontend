@@ -11,23 +11,19 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 
 // Componente principal del formulario
 const NewSaleForm = () => {
-    // Estados para los datos de los dropdowns
     const [products, setProducts] = useState([]);
     const [customers, setCustomers] = useState([]);
-
-    // Estados para el carrito y el formulario
     const [cart, setCart] = useState([]); // El "carrito de compras"
     const [saleData, setSaleData] = useState({
         customerId: '',
         amountPaid: 0,
         paymentMethod: 'Efectivo', // Valor por defecto
     });
-
-    // Estados para el "Añadir Producto"
     const [currentItem, setCurrentItem] = useState({
         productId: '',
         quantity: 1,
     });
+    const [currentFormat, setCurrentFormat] = useState('unidad');
 
     // --- Carga de Datos (Dropdowns) ---
     useEffect(() => {
@@ -49,50 +45,77 @@ const NewSaleForm = () => {
         loadDropdowns();
     }, []);
 
-    // --- Lógica del Carrito ---
-
+    // --- Lógica del Carrito (CORREGIDA) ---
     const handleAddItemToCart = () => {
         if (!currentItem.productId || currentItem.quantity <= 0) {
             alert('Selecciona un producto y una cantidad válida.');
             return;
         }
 
-        // Encontrar la info del producto
         const product = products.find(p => p._id === currentItem.productId);
         if (!product) return;
 
-        // Chequear si ya está en el carrito
-        const existingItem = cart.find(item => item.productId === product._id);
+        const qty = Number(currentItem.quantity); // Cantidad de "formatos" (ej. 2 cartones)
+        let itemToAdd;
+
+        // --- Lógica de lineTotal (para evitar decimales y NaN) ---
+        if (currentFormat === 'paquete') {
+            // VALIDACIÓN
+            if (!product.packageUnits || product.packageUnits <= 0 || product.packagePrice === undefined || product.packagePrice < 0) {
+                alert(`Error: El producto "${product.name}" no tiene un precio de paquete válido (Unidades y Precio) configurado en la sección de Productos.`);
+                return; // Detiene la ejecución
+            }
+            
+            itemToAdd = {
+                productId: product._id,
+                productName: `${product.name} (${product.packageName || 'Paquete'})`,
+                // Cantidad total de huevos (ej: 2 * 30 = 60)
+                quantity: qty * product.packageUnits,
+                // Total de la línea (ej: 2 * 13000 = 26000)
+                lineTotal: qty * product.packagePrice, 
+            };
+        } else {
+            // Venta por UNIDAD
+            itemToAdd = {
+                productId: product._id,
+                productName: `${product.name} (Unidad)`,
+                // Cantidad total de huevos (ej: 5)
+                quantity: qty,
+                // Total de la línea (ej: 5 * 450 = 2250)
+                lineTotal: qty * product.unitPrice, 
+            };
+        }
+
+        // --- Lógica de Carrito Corregida (Arregla el bug de 'key' y 'newCart') ---
+        const existingItem = cart.find(item => item.productName === itemToAdd.productName);
 
         let newCart;
         if (existingItem) {
-            // Si ya existe, actualiza la cantidad
+            // Si ya existe, actualiza cantidad y total
             newCart = cart.map(item =>
-                item.productId === product._id
-                    ? { ...item, quantity: item.quantity + Number(currentItem.quantity) }
+                item.productName === itemToAdd.productName
+                    ? { 
+                        ...item, 
+                        quantity: item.quantity + itemToAdd.quantity,
+                        lineTotal: item.lineTotal + itemToAdd.lineTotal // Suma los totales
+                      }
                     : item
             );
         } else {
             // Si no existe, añádelo
-            newCart = [
-                ...cart,
-                {
-                    productId: product._id,
-                    productName: product.name,
-                    quantity: Number(currentItem.quantity),
-                    priceAtSale: product.unitPrice,
-                },
-            ];
+            newCart = [...cart, itemToAdd];
         }
-        setCart(newCart);
+        
+        // ¡USA newCart y arregla el bug!
+        setCart(newCart); 
     };
 
-    const handleRemoveItemFromCart = (productId) => {
-        setCart(cart.filter(item => item.productId !== productId));
+    const handleRemoveItemFromCart = (productName) => {
+        // Elimina por 'productName' que es nuestra 'key' única
+        setCart(cart.filter(item => item.productName !== productName));
     };
 
     // --- Lógica del Formulario ---
-
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setSaleData(prev => ({ ...prev, [name]: value }));
@@ -103,20 +126,20 @@ const NewSaleForm = () => {
         setCurrentItem(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- Cálculo de Totales ---
-    const totalAmount = cart.reduce((sum, item) => sum + (item.priceAtSale * item.quantity), 0);
+    // --- Cálculo de Totales (Arregla el NaN) ---
+    // Ahora suma los 'lineTotal' que SÍ existen en el carrito
+    const totalAmount = cart.reduce((sum, item) => sum + item.lineTotal, 0);
     const amountPending = totalAmount - (Number(saleData.amountPaid) || 0);
 
-    // --- Envío de la Venta ---
-
+    // --- Envío de la Venta (Corregido) ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (cart.length === 0) {
             alert('Debes añadir al menos un producto a la venta.');
             return;
         }
-
-        // Prepara el DTO para el backend
+        
+        // El DTO ahora coincide con lo que el backend espera
         const saleDTO = {
             customerId: saleData.customerId,
             amountPaid: Number(saleData.amountPaid),
@@ -124,14 +147,14 @@ const NewSaleForm = () => {
             items: cart.map(item => ({
                 productId: item.productId,
                 quantity: item.quantity,
+                lineTotal: item.lineTotal,       // <-- ENVIAMOS EL TOTAL
+                productName: item.productName,  // <-- ENVIAMOS EL NOMBRE
             })),
-            // 'date' no es necesario, el backend lo pone por defecto
         };
 
         try {
             await createSale(saleDTO);
             alert('¡Venta registrada exitosamente!');
-            // Limpiar formulario
             setCart([]);
             setSaleData({
                 customerId: customers[0]?._id || '',
@@ -139,24 +162,22 @@ const NewSaleForm = () => {
                 paymentMethod: 'Efectivo',
             });
         } catch (error) {
-            // El servicio lanza el error, lo mostramos
             alert(`Error al crear la venta: ${error.message || 'Error desconocido'}`);
         }
     };
 
-    // --- Renderizado (HTML del Mockup) ---
+    // --- Renderizado (HTML Corregido) ---
     return (
         <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Columna Izquierda: Formulario */}
             <div className="lg:col-span-2 space-y-8">
 
                 {/* Datos Generales */}
-                <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
-                    <h3 className="text-gray-900 dark:text-white text-lg font-bold ... mb-4">
+                <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-border-light dark:border-gray-700">
+                    <h3 className="text-gray-900 dark:text-white text-lg font-bold mb-4">
                         Datos Generales
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Campo Cliente */}
                         <label className="flex flex-col w-full">
                             <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Cliente</p>
                             <select
@@ -164,20 +185,19 @@ const NewSaleForm = () => {
                                 value={saleData.customerId}
                                 onChange={handleFormChange}
                                 required
-                                className="form-select ... h-12 ..."
+                                className="form-select h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             >
                                 {customers.map(c => (
                                     <option key={c._id} value={c._id}>{c.name}</option>
                                 ))}
                             </select>
                         </label>
-                        {/* Campo Fecha (Opcional, el backend la pone) */}
                         <label className="flex flex-col w-full">
                             <p className="text-gray-800 dark:text-gray-200 text-sm font-medium pb-2">Fecha de Venta</p>
                             <input
-                                className="form-input ... h-12 ..."
+                                className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
                                 type="date"
-                                defaultValue={new Date().toISOString().split('T')[0]} // Fecha de hoy
+                                value={new Date().toISOString().split('T')[0]} // Fecha de hoy
                                 readOnly
                             />
                         </label>
@@ -185,33 +205,51 @@ const NewSaleForm = () => {
                 </section>
 
                 {/* Añadir Productos */}
-                <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
-                    <h3 className="text-gray-900 dark:text-white text-lg font-bold ... mb-4">
+                <section className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-border-light dark:border-gray-700">
+                    <h3 className="text-gray-900 dark:text-white text-lg font-bold mb-4">
                         Añadir Productos
                     </h3>
                     <div className="flex flex-col md:flex-row items-end gap-4">
                         <label className="flex flex-col w-full flex-1">
-                            <p className="... text-sm font-medium pb-2">Producto</p>
+                            <p className="text-sm font-medium pb-2 text-gray-800 dark:text-gray-200">Producto</p>
                             <select
                                 name="productId"
                                 value={currentItem.productId}
                                 onChange={handleItemChange}
-                                className="form-select ... h-12"
+                                className="form-select h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             >
                                 {products.map(p => (
-                                    <option key={p._id} value={p._id}>{p.name} ({currencyFormatter.format(p.unitPrice)})</option>
+                                    <option key={p._id} value={p._id}>{p.name} ({currencyFormatter.format(p.unitPrice)}/un)</option>
                                 ))}
                             </select>
                         </label>
+
+                        <label className="flex flex-col w-full md:w-48">
+                            <p className="text-sm font-medium pb-2 text-gray-800 dark:text-gray-200">Formato</p>
+                            <select
+                                name="format"
+                                value={currentFormat}
+                                onChange={(e) => setCurrentFormat(e.target.value)}
+                                className="form-select h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
+                            >
+                                <option value="unidad">Unidad</option>
+                                {products.find(p => p._id === currentItem.productId)?.packagePrice > 0 && (
+                                    <option value="paquete">
+                                        {products.find(p => p._id === currentItem.productId).packageName || 'Paquete'}
+                                    </option>
+                                )}
+                            </select>
+                        </label>
+
                         <label className="flex flex-col w-full md:w-32">
-                            <p className="... text-sm font-medium pb-2">Cantidad</p>
+                            <p className="text-sm font-medium pb-2 text-gray-800 dark:text-gray-200">Cantidad</p>
                             <input
                                 name="quantity"
                                 type="number"
                                 min="1"
                                 value={currentItem.quantity}
                                 onChange={handleItemChange}
-                                className="form-input ... h-12"
+                                className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             />
                         </label>
                         <button
@@ -228,18 +266,20 @@ const NewSaleForm = () => {
                     <div className="mt-6 flow-root">
                         <ul className="-my-4 divide-y divide-gray-200 dark:divide-gray-800">
                             {cart.map(item => (
-                                <li key={item.productId} className="flex items-center py-4">
+                                // ¡KEY CORREGIDA! Usa productName que es único
+                                <li key={item.productName} className="flex items-center py-4">
                                     <div className="flex-1">
                                         <p className="text-gray-900 dark:text-white font-medium">{item.productName}</p>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {item.quantity} x {currencyFormatter.format(item.priceAtSale)}
+                                            {item.quantity} unidades
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <p className="font-semibold text-gray-900 dark:text-white">
-                                            {currencyFormatter.format(item.quantity * item.priceAtSale)}
+                                            {/* ¡TOTAL CORREGIDO! Muestra el lineTotal */}
+                                            {currencyFormatter.format(item.lineTotal)}
                                         </p>
-                                        <button type="button" onClick={() => handleRemoveItemFromCart(item.productId)} className="text-gray-400 hover:text-red-500">
+                                        <button type="button" onClick={() => handleRemoveItemFromCart(item.productName)} className="text-gray-400 hover:text-red-500">
                                             <span className="material-symbols-outlined text-xl">delete</span>
                                         </button>
                                     </div>
@@ -252,27 +292,28 @@ const NewSaleForm = () => {
 
             {/* Columna Derecha: Resumen y Pago */}
             <aside className="lg:col-span-1">
-                <div className="sticky top-10 bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800 space-y-6">
+                <div className="sticky top-10 bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-border-light dark:border-gray-700 space-y-6">
                     <h3 className="text-gray-900 dark:text-white text-lg font-bold">Resumen y Pago</h3>
 
                     <div className="space-y-2 border-b border-gray-200 dark:border-gray-800 pb-4">
                         <div className="flex justify-between font-bold text-lg">
                             <p className="text-gray-900 dark:text-white">Total</p>
+                            {/* ¡TOTAL CORREGIDO! Usa la variable totalAmount (que ya no es NaN) */}
                             <p className="text-gray-900 dark:text-white">{currencyFormatter.format(totalAmount)}</p>
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <label className="flex flex-col w-full">
-                            <p className="... text-sm font-medium pb-2">Monto Pagado</p>
+                            <p className="text-sm font-medium pb-2 text-gray-800 dark:text-gray-200">Monto Pagado</p>
                             <input
                                 name="amountPaid"
                                 type="number"
                                 min="0"
-                                max={totalAmount}
+                                max={totalAmount || 0} // Asegura que max nunca sea NaN
                                 value={saleData.amountPaid}
                                 onChange={handleFormChange}
-                                className="form-input ... h-12"
+                                className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             />
                         </label>
 
@@ -286,12 +327,12 @@ const NewSaleForm = () => {
                         </div>
 
                         <div>
-                            <p className="... text-sm font-medium pb-2">Método de Pago</p>
+                            <p className="text-sm font-medium pb-2 text-gray-800 dark:text-gray-200">Método de Pago</p>
                             <select
                                 name="paymentMethod"
                                 value={saleData.paymentMethod}
                                 onChange={handleFormChange}
-                                className="form-select ... h-12 w-full"
+                                className="form-select h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary"
                             >
                                 <option>Efectivo</option>
                                 <option>Nequi</option>
@@ -304,7 +345,7 @@ const NewSaleForm = () => {
                     <div className="flex flex-col gap-3 pt-4">
                         <button
                             type="submit"
-                            className="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2"
+                            className="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2 transition-colors hover:bg-primary/90"
                         >
                             <span className="material-symbols-outlined">save</span>
                             Guardar Venta
