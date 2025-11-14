@@ -1,153 +1,184 @@
 import React, { useState, useEffect } from 'react';
 import {
-  getCustomers,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
+    getCustomers,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
 } from '../../../services/customers.service';
 import Modal from '../../../components/ui/Modal';
 import CustomerForm from './CustomerForm';
 
 const CustomerList = () => {
-  const [customers, setCustomers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [customers, setCustomers] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCustomers = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getCustomers();
-      setCustomers(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
+    const fetchCustomers = async () => {
+        try {
+            setIsLoading(true);
+            const data = await getCustomers();
+            setCustomers(data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-  const handleOpenModal = (customer = null) => {
-    setSelectedCustomer(customer);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedCustomer(null);
-  };
-
-  const handleSaveCustomer = async (customerData) => {
-    try {
-      if (selectedCustomer) {
-        await updateCustomer(selectedCustomer._id, customerData);
-      } else {
-        await createCustomer(customerData);
-      }
-      fetchCustomers();
-      handleCloseModal();
-    } catch (error) {
-      alert(`Error: ${error.message || 'No se pudo guardar el cliente'}`);
-    }
-  };
-
-  const handleDeleteCustomer = async (customerId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-      try {
-        await deleteCustomer(customerId);
+    useEffect(() => {
         fetchCustomers();
-      } catch (error) {
-        alert(`Error: ${error.message || 'No se pudo eliminar el cliente'}`);
-      }
+    }, []);
+
+    const handleOpenModal = (customer = null) => {
+        setSelectedCustomer(customer);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedCustomer(null);
+    };
+
+    const handleSaveCustomer = async (customerData) => {
+        try {
+            if (selectedCustomer) {
+                await updateCustomer(selectedCustomer._id, customerData);
+            } else {
+                await createCustomer(customerData);
+            }
+            fetchCustomers();
+            handleCloseModal();
+        } catch (error) {
+            alert(`Error: ${error.message || 'No se pudo guardar el cliente'}`);
+        }
+    };
+
+    const handleDeleteCustomer = async (customerId) => {
+        if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+            try {
+                await deleteCustomer(customerId);
+                fetchCustomers();
+            } catch (error) {
+                alert(`Error: ${error.message || 'No se pudo eliminar el cliente'}`);
+            }
+        }
+    };
+
+    if (isLoading && !isModalOpen) {
+        return <p className="p-4">Cargando clientes...</p>;
     }
-  };
 
-  if (isLoading && !isModalOpen) {
-    return <p>Cargando clientes...</p>;
-  }
+    return (
+        <section className="p-4 sm:p-6">
+            {/* --- Encabezado y Botón "Crear" --- */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-text-main dark:text-white text-[22px] font-bold">
+                    Listado de Clientes
+                </h2>
+                <button
+                    onClick={() => handleOpenModal(null)}
+                    className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white gap-2 pl-3 text-sm font-bold transition-colors hover:bg-primary/90"
+                >
+                    <span className="material-symbols-outlined">add</span>
+                    <span className="truncate">Crear Nuevo Cliente</span>
+                </button>
+            </div>
 
-  return (
-    // HTML del Mockup
-    <section className="p-4 sm:p-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-[#111518] dark:text-white text-[22px] font-bold">
-          Listado de Clientes
-        </h2>
-        <button
-          onClick={() => handleOpenModal(null)}
-          className="flex ... h-10 px-4 bg-primary text-gray-800 ... text-sm font-bold"
-        >
-          <span className="material-symbols-outlined">add</span>
-          <span className="truncate">Crear Nuevo Cliente</span>
-        </button>
-      </div>
-
-      <div className="mt-6 flow-root">
-        <div className="inline-block min-w-full py-2 align-middle">
-          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 ... rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th scope="col" className="py-3.5 pl-4 ... text-left text-sm font-semibold ...">Nombre</th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold ...">Teléfono</th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold ...">Dirección</th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold ...">Notas</th>
-                  <th scope="col" className="relative py-3.5 pl-3 pr-4">
-                    <span className="sr-only">Acciones</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y ... bg-white dark:bg-background-dark">
+            {/* --- VISTA MÓVIL (TARJETAS) --- */}
+            <div className="mt-6 space-y-4 md:hidden">
                 {customers.map((customer) => (
-                  <tr key={customer._id}>
-                    <td className="whitespace-nowrap py-4 pl-4 ... text-sm font-medium ...">
-                      {customer.name}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm ...">{customer.phone || 'N/A'}</td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm ...">{customer.address || 'N/A'}</td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm ...">{customer.notes || 'N/A'}</td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
-                      <div className="flex gap-4 justify-end">
-                        <button
-                          onClick={() => handleOpenModal(customer)}
-                          className="text-primary hover:text-primary/80"
-                        >
-                          <span className="material-symbols-outlined text-base">edit</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCustomer(customer._id)}
-                          className="text-danger hover:text-danger/80"
-                        >
-                          <span className="material-symbols-outlined text-base">delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+                    <article key={customer._id} className="bg-white dark:bg-gray-800 rounded-lg shadow border border-border-light dark:border-gray-700 p-4">
+                        <h4 className="text-lg font-bold text-text-main dark:text-white mb-2">
+                            {customer.name}
+                        </h4>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={selectedCustomer ? 'Editar Cliente' : 'Crear Nuevo Cliente'}
-      >
-        <CustomerForm
-          key={selectedCustomer ? selectedCustomer._id : 'new'}
-          customer={selectedCustomer}
-          onSubmit={handleSaveCustomer}
-          onCancel={handleCloseModal}
-        />
-      </Modal>
-    </section>
-  );
+                        <div className="text-sm border-b border-border-light dark:border-gray-700 py-2">
+                            <span className="text-text-muted dark:text-gray-400 font-medium">Teléfono: </span>
+                            <span className="text-text-main dark:text-gray-200">{customer.phone || 'N/A'}</span>
+                        </div>
+
+                        <div className="text-sm border-b border-border-light dark:border-gray-700 py-2">
+                            <span className="text-text-muted dark:text-gray-400 font-medium">Dirección: </span>
+                            <span className="text-text-main dark:text-gray-200">{customer.address || 'N/A'}</span>
+                        </div>
+
+                        <div className="text-sm py-2">
+                            <span className="text-text-muted dark:text-gray-400 font-medium">Notas: </span>
+                            <p className="text-text-main dark:text-gray-200 mt-1">{customer.notes || 'N/A'}</p>
+                        </div>
+
+                        <footer className="flex items-center gap-4 pt-3 mt-2 border-t border-border-light dark:border-gray-700">
+                            <button onClick={() => handleOpenModal(customer)} className="flex items-center gap-1 text-primary dark:text-primary/90 hover:opacity-80">
+                                <span className="material-symbols-outlined text-base">edit</span>
+                                <span className="font-bold text-sm">Editar</span>
+                            </button>
+                            <button onClick={() => handleDeleteCustomer(customer._id)} className="flex items-center gap-1 text-danger dark:text-danger/90 hover:opacity-80">
+                                <span className="material-symbols-outlined text-base">delete</span>
+                                <span className="font-bold text-sm">Eliminar</span>
+                            </button>
+                        </footer>
+                    </article>
+                ))}
+            </div>
+
+            {/* --- VISTA DESKTOP (TABLA) --- */}
+            <div className="mt-6 flow-root hidden md:block">
+                <div className="inline-block min-w-full py-2 align-middle">
+                    <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 dark:ring-white dark:ring-opacity-10 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Nombre</th>
+                                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Teléfono</th>
+                                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Dirección</th>
+                                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Notas</th>
+                                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Acciones</span></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-background-dark">
+                                {customers.map((customer) => (
+                                    <tr key={customer._id}>
+                                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-200 sm:pl-6">
+                                            {customer.name}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{customer.phone || 'N/A'}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{customer.address || 'N/A'}</td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{customer.notes || 'N/A'}</td>
+                                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                            <div className="flex gap-4 justify-end">
+                                                <button onClick={() => handleOpenModal(customer)} className="text-primary hover:text-primary/80">
+                                                    <span className="material-symbols-outlined text-base">edit</span>
+                                                </button>
+                                                <button onClick={() => handleDeleteCustomer(customer._id)} className="text-danger hover:text-danger/80">
+                                                    <span className="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- Modal (sin cambios) --- */}
+            <Modal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                title={selectedCustomer ? 'Editar Cliente' : 'Crear Nuevo Cliente'}
+            >
+                <CustomerForm
+                    key={selectedCustomer ? selectedCustomer._id : 'new'}
+                    customer={selectedCustomer}
+                    onSubmit={handleSaveCustomer}
+                    onCancel={handleCloseModal}
+                />
+            </Modal>
+        </section>
+    );
 };
 
 export default CustomerList;
