@@ -111,6 +111,7 @@ const ProductForm = ({ product, onSubmit, onCancel }) => {
                     <input
                         name="packageUnits"
                         type="number"
+                        step="1"
                         min="0"
                         value={formData.packageUnits || ''}
                         onChange={handleChange}

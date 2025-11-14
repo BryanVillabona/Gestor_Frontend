@@ -162,7 +162,27 @@ const NewSaleForm = () => {
                 paymentMethod: 'Efectivo',
             });
         } catch (error) {
-            alert(`Error al crear la venta: ${error.message || 'Error desconocido'}`);
+            // ----- INICIO DE LA MODIFICACIÓN -----
+            console.error('Objeto de error detallado:', error); // <-- Añade este log
+            
+            let errorMessage = 'Error desconocido';
+            
+            // error.details viene del validador Joi (Backend)
+            if (error.details) { 
+                errorMessage = error.details.join(', ');
+            
+            // error.error viene de tu servicio (Backend)
+            } else if (error.error) { 
+                errorMessage = error.error;
+            
+            // error.message es el fallback de Axios
+            } else if (error.message) { 
+                errorMessage = error.message;
+            }
+
+            // Muestra el mensaje de error real
+            alert(`Error al crear la venta: ${errorMessage}`);
+            // ----- FIN DE LA MODIFICACIÓN -----
         }
     };
 
@@ -246,6 +266,7 @@ const NewSaleForm = () => {
                             <input
                                 name="quantity"
                                 type="number"
+                                step="1"
                                 min="1"
                                 value={currentItem.quantity}
                                 onChange={handleItemChange}
