@@ -53,10 +53,21 @@ const getSalesByDateRange = async (startDate, endDate) => {
   }
 };
 
+const getDebtorCustomers = async () => {
+  try {
+    const { data } = await apiClient.get('/reports/debtor-customers');
+    return data;
+  } catch (error) {
+    console.error('Error al obtener reporte de deudores:', error);
+    throw error.response?.data || error;
+  }
+};
+
 export { 
   getDashboardKPIs, 
   getTotalPortfolio, 
   getInventoryAlerts, 
   getCustomerPortfolio,
   getSalesByDateRange,
+  getDebtorCustomers,
 };
