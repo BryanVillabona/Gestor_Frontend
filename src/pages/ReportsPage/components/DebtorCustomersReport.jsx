@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { getDebtorCustomers } from '../../../services/reports.service';
+import AccountStatementModal from './AccountStatementModal';
 
 // Formateador de moneda
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -12,6 +13,7 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 const DebtorCustomersReport = () => {
     const [debtors, setDebtors] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedCustomerId, setSelectedCustomerId] = useState(null);
 
     useEffect(() => {
         const fetchDebtors = async () => {
@@ -27,6 +29,13 @@ const DebtorCustomersReport = () => {
         };
         fetchDebtors();
     }, []);
+
+    const handleOpenModal = (customerId) => {
+        setSelectedCustomerId(customerId);
+    };
+    const handleCloseModal = () => {
+        setSelectedCustomerId(null);
+    };
 
     if (isLoading) {
         return (
@@ -62,7 +71,14 @@ const DebtorCustomersReport = () => {
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                             {debtors.map((item) => (
                                 <tr key={item.customerId}>
-                                    <td className="p-4 text-sm font-medium ...">{item.name}</td>
+                                    <td className="p-4 text-sm font-medium ...">
+                                        <button
+                                            onClick={() => handleOpenModal(item.customerId)}
+                                            className="text-primary hover:underline font-bold"
+                                        >
+                                            {item.name}
+                                        </button>
+                                    </td>
                                     <td className="p-4 text-sm ...">{item.phone}</td>
                                     <td className="p-4 text-sm font-bold text-danger text-right">
                                         {currencyFormatter.format(item.balance)}
@@ -72,6 +88,12 @@ const DebtorCustomersReport = () => {
                         </tbody>
                     </table>
                 </div>
+            )}
+            {selectedCustomerId && (
+                <AccountStatementModal
+                    customerId={selectedCustomerId}
+                    onClose={handleCloseModal}
+                />
             )}
         </article>
     );
