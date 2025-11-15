@@ -19,3 +19,13 @@ export const addStock = async (stockData) => {
     throw error;
   }
 };
+
+export const updateStock = async (inventoryId, quantity) => {
+  try {
+    const { data } = await apiClient.put(`/inventory/${inventoryId}`, { quantity });
+    return data;
+  } catch (error) {
+    console.error('Error al actualizar stock:', error);
+    throw error.response?.data || error;
+  }
+};
