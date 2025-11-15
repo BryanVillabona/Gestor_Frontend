@@ -9,7 +9,12 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 // Función para obtener la fecha de hoy en formato YYYY-MM-DD
-const getTodayDate = () => new Date().toISOString().split('T')[0];
+const getTodayDate = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localDate = new Date(now.getTime() - offset);
+    return localDate.toISOString().split('T')[0];
+};
 
 const DateRangeReport = () => {
     // Estado para los inputs de fecha

@@ -5,6 +5,14 @@ import { getCustomers } from '../../../services/customers.service';
 import { createSale } from '../../../services/sales.service';
 import { getInventory } from '../../../services/inventory.service';
 
+const getLocalDate = () => {
+    const now = new Date();
+    // Restamos el offset de la zona horaria para obtener la fecha local en formato ISO
+    const offset = now.getTimezoneOffset() * 60000;
+    const localDate = new Date(now.getTime() - offset);
+    return localDate.toISOString().split('T')[0];
+};
+
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
@@ -348,7 +356,7 @@ const NewSaleForm = () => {
                             <input
                                 className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
                                 type="date"
-                                value={new Date().toISOString().split('T')[0]} // Fecha de hoy
+                                value={getLocalDate()}
                                 readOnly
                             />
                         </label>
