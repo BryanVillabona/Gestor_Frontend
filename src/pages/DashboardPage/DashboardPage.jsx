@@ -95,21 +95,19 @@ const DashboardPage = () => {
             </div>
 
             {/* Botones CTA (AHORA RESPONSIVE) */}
-            <nav className="flex flex-col sm:flex-row flex-wrap gap-4 p-4">
+            <nav className="flex flex-col sm:flex-row gap-4 p-4">
                 <Link
                     to="/ventas"
-                    // Clases cambiadas: h-12 (más bajo), text-sm (más pequeño), sm:text-base (tamaño normal en desktop)
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary h-12 px-6 text-sm sm:text-base font-bold text-white hover:bg-primary/90 transition-colors"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-4 px-6 text-base font-bold text-white shadow-md transition-all hover:bg-primary/90 active:scale-95"
                 >
-                    <span className="material-symbols-outlined">add_shopping_cart</span>
+                    <span className="material-symbols-outlined text-2xl">add_shopping_cart</span>
                     <span>Registrar Nueva Venta</span>
                 </Link>
                 <Link
                     to="/productos"
-                    // Clases cambiadas: h-12 (más bajo), text-sm (más pequeño), sm:text-base (tamaño normal en desktop)
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-verde-stock h-12 px-6 text-sm sm:text-base font-bold text-white hover:bg-opacity-90 transition-colors"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-verde-stock py-4 px-6 text-base font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-95"
                 >
-                    <span className="material-symbols-outlined">inventory</span>
+                    <span className="material-symbols-outlined text-2xl">inventory</span>
                     <span>Registrar Entrada</span>
                 </Link>
             </nav>
