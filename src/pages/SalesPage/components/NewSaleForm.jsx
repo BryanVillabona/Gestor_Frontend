@@ -33,7 +33,7 @@ const NewSaleForm = () => {
 
     const [saleData, setSaleData] = useState({
         customerId: '',
-        amountPaid: 0,
+        amountPaid: '', // CAMBIO: Iniciar como cadena vacía para permitir edición limpia
         paymentMethod: 'Efectivo', // Valor por defecto
     });
     const [currentItem, setCurrentItem] = useState({
@@ -83,7 +83,7 @@ const NewSaleForm = () => {
             setSaleData(prev => ({
                 ...prev,
                 customerId: genericCustomerId, // Asigna ID genérico
-                amountPaid: 0 // Resetea. El render se encargará de mostrar el total
+                amountPaid: '' // CAMBIO: Resetea a vacío
             }));
         } else {
             // 3. Si es cliente, busca el primer cliente REAL y resetea el pago
@@ -91,7 +91,7 @@ const NewSaleForm = () => {
             setSaleData(prev => ({
                 ...prev,
                 customerId: firstRealCustomer ? firstRealCustomer._id : '', // Asigna primer real
-                amountPaid: 0 // Resetea para gestión de cartera
+                amountPaid: '' // CAMBIO: Resetea a vacío para gestión de cartera
             }));
         }
     };
@@ -191,19 +191,27 @@ const NewSaleForm = () => {
     };
 
 
-    // --- CÁLCULO DE TOTALES (LÓGICA CORREGIDA) ---
-    // Se calculan estas variables en CADA RENDER. Esto es lo correcto.
+    // --- CÁLCULO DE TOTALES (LÓGICA CORREGIDA PARA INPUT MÓVIL) ---
+    // Se calculan estas variables en CADA RENDER.
     const totalAmount = cart.reduce((sum, item) => sum + item.lineTotal, 0);
     const isMostrador = saleType === 'mostrador';
     
-    // El monto pagado "efectivo" se CALCULA, no se guarda en state
-    const effectiveAmountPaid = isMostrador ? totalAmount : (Number(saleData.amountPaid) || 0);
+    // 1. Valor MATEMÁTICO (para calcular deuda y enviar al backend)
+    //    Si saleData.amountPaid es "" (vacío), vale 0.
+    const mathAmountPaid = isMostrador 
+        ? totalAmount 
+        : (saleData.amountPaid === '' ? 0 : Number(saleData.amountPaid));
     
-    // El cliente "efectivo" se CALCULA
+    // 2. Valor VISUAL (para el input)
+    //    Si es mostrador, mostramos totalAmount.
+    //    Si es cliente, mostramos DIRECTAMENTE lo que el usuario escribe (sea número o vacío).
+    const inputVisualValue = isMostrador ? totalAmount : saleData.amountPaid;
+    
+    // El cliente efectivo
     const effectiveCustomerId = isMostrador ? genericCustomerId : saleData.customerId;
 
-    // El pendiente se calcula sobre el monto efectivo
-    const amountPending = totalAmount - effectiveAmountPaid;
+    // El pendiente se calcula sobre el valor matemático
+    const amountPending = totalAmount - mathAmountPaid;
     // --- FIN CÁLCULO DE TOTALES ---
 
 
@@ -227,8 +235,9 @@ const NewSaleForm = () => {
 
         const saleDTO = {
             customerId: effectiveCustomerId,  // <-- USA EFECTIVO
-            amountPaid: effectiveAmountPaid, // <-- USA EFECTIVO
+            amountPaid: mathAmountPaid,      // <-- CAMBIO: USA VALOR MATEMÁTICO SEGURO
             paymentMethod: saleData.paymentMethod,
+            date: getLocalDate(), // <-- MANTENEMOS TU FUNCIÓN DE FECHA LOCAL
             items: cart.map(item => ({
                 productId: item.productId,
                 quantity: item.quantity,
@@ -246,7 +255,7 @@ const NewSaleForm = () => {
             if (isMostrador) {
                 setSaleData({
                     customerId: genericCustomerId, // Re-selecciona cliente genérico
-                    amountPaid: 0, // El carrito es 0, el total es 0, el pago es 0
+                    amountPaid: '', // CAMBIO: Resetea a vacío
                     paymentMethod: 'Efectivo',
                 });
             } else {
@@ -254,7 +263,7 @@ const NewSaleForm = () => {
                 const firstRealCustomer = customers.find(c => c._id !== genericCustomerId);
                 setSaleData({
                     customerId: firstRealCustomer ? firstRealCustomer._id : '',
-                    amountPaid: 0,
+                    amountPaid: '', // CAMBIO: Resetea a vacío
                     paymentMethod: 'Efectivo',
                 });
             }
@@ -471,11 +480,12 @@ const NewSaleForm = () => {
                                 type="number"
                                 min="0"
                                 max={totalAmount || 0}
-                                // --- MODIFICADO: Muestra el valor efectivo ---
-                                value={effectiveAmountPaid} 
+                                // --- MODIFICADO: Muestra el valor visual (puede estar vacío) ---
+                                value={inputVisualValue} 
                                 onChange={handleFormChange}
                                 // --- MODIFICADO: Deshabilitar si es venta de mostrador ---
                                 disabled={isMostrador}
+                                placeholder="0"
                                 className="form-input h-12 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-primary/50 focus:border-primary disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-800/50"
                             />
                         </label>
@@ -485,7 +495,7 @@ const NewSaleForm = () => {
                                 Monto Pendiente
                             </p>
                             <p className={`text-sm font-bold ${amountPending > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                {/* --- MODIFICADO: Muestra el pendiente efectivo --- */}
+                                {/* --- MODIFICADO: Muestra el pendiente calculado matemáticamente --- */}
                                 {currencyFormatter.format(amountPending)}
                             </p>
                         </div>
