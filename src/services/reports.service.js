@@ -63,6 +63,47 @@ const getDebtorCustomers = async () => {
   }
 };
 
+const exportSalesToExcel = async (startDate, endDate) => {
+  try {
+    const { data } = await apiClient.get('/reports/export/sales', {
+      params: { startDate, endDate },
+      responseType: 'blob', // ¡Súper importante! Le dice a Axios que baje un archivo
+    });
+
+    // 1. Crear un Blob (archivo en memoria)
+    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    // 2. Crear un link temporal en el navegador
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // 3. Ponerle nombre al archivo
+    const fileName = `Reporte_Ventas_${startDate}_${endDate}.xlsx`;
+    link.setAttribute('download', fileName);
+
+    // 4. Simular clic para descargar
+    document.body.appendChild(link);
+    link.click();
+
+    // 5. Limpiar (borrar el link temporal)
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    return true; // Éxito
+
+  } catch (error) {
+    console.error('Error al exportar Excel:', error);
+    // Manejo de error si el servidor devuelve un error JSON en lugar de un blob
+    if (error.response && error.response.data.toString() === '[object Blob]') {
+        const errorText = await error.response.data.text();
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.error || 'Error al generar el archivo');
+    }
+    throw new Error(error.message || 'Error desconocido al descargar');
+  }
+};
+
 export { 
   getDashboardKPIs, 
   getTotalPortfolio, 
@@ -70,4 +111,5 @@ export {
   getCustomerPortfolio,
   getSalesByDateRange,
   getDebtorCustomers,
+  exportSalesToExcel,
 };

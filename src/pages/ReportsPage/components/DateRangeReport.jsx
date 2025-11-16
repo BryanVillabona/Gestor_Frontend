@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { getSalesByDateRange } from '../../../services/reports.service';
+// 1. Importamos la nueva función del servicio
+import { getSalesByDateRange, exportSalesToExcel } from '../../../services/reports.service';
 
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -26,16 +27,21 @@ const DateRangeReport = () => {
     // Estado para guardar los resultados del reporte
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // 2. NUEVO ESTADO: Carga independiente para el botón de Excel
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setDates(prev => ({ ...prev, [name]: value }));
     };
 
+    // Este es tu manejador actual (Ver en pantalla)
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             setIsLoading(true);
+            setReportData(null); // Limpia el reporte anterior
             const data = await getSalesByDateRange(dates.startDate, dates.endDate);
             setReportData(data);
         } catch (error) {
@@ -45,48 +51,87 @@ const DateRangeReport = () => {
         }
     };
 
+    // 3. NUEVO MANEJADOR: Para el botón de descarga
+    const handleExport = async () => {
+        try {
+            setIsDownloading(true);
+            toast.loading('Generando tu reporte Excel... espera un momento', {
+                id: 'excel-toast', // ID para que los toasts no se acumulen
+            });
+
+            await exportSalesToExcel(dates.startDate, dates.endDate);
+
+            toast.success('¡Reporte en camino! Revisa tus descargas.', {
+                id: 'excel-toast',
+            });
+
+        } catch (error) {
+            toast.error(`Error al exportar: ${error.message}`, {
+                id: 'excel-toast',
+            });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
-        // HTML del Mockup
         <section className="flex flex-col gap-8">
             {/* 1. Sección de Generación de Reporte (Formulario) */}
             <article className="bg-white dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800">
                 <h2 className="text-gray-900 dark:text-white text-[22px] font-bold ... mb-4">
                     Reporte de Ventas por Período
                 </h2>
-                <form onSubmit={handleSubmit} className="flex flex-col md:flex-row md:items-end gap-4">
-                    <label className="flex flex-col min-w-40 flex-1">
-                        <p className="... text-sm font-medium pb-2">Fecha de Inicio</p>
-                        <input
-                            name="startDate"
-                            type="date"
-                            value={dates.startDate}
-                            onChange={handleChange}
-                            required
-                            className="form-input ... h-12 ..."
-                        />
-                    </label>
-                    <label className="flex flex-col min-w-40 flex-1">
-                        <p className="... text-sm font-medium pb-2">Fecha de Fin</p>
-                        <input
-                            name="endDate"
-                            type="date"
-                            value={dates.endDate}
-                            onChange={handleChange}
-                            required
-                            className="form-input ... h-12 ..."
-                        />
-                    </label>
+                
+                {/* 4. MODIFICACIÓN: Agrupamos los botones */}
+                <div className="flex flex-col md:flex-row md:items-end gap-4">
+                    
+                    {/* El formulario ahora es flexible */}
+                    <form onSubmit={handleSubmit} className="flex flex-col md:flex-row md:items-end gap-4 flex-1">
+                        <label className="flex flex-col min-w-40 flex-1">
+                            <p className="... text-sm font-medium pb-2">Fecha de Inicio</p>
+                            <input
+                                name="startDate"
+                                type="date"
+                                value={dates.startDate}
+                                onChange={handleChange}
+                                required
+                                className="form-input ... h-12 ..."
+                            />
+                        </label>
+                        <label className="flex flex-col min-w-40 flex-1">
+                            <p className="... text-sm font-medium pb-2">Fecha de Fin</p>
+                            <input
+                                name="endDate"
+                                type="date"
+                                value={dates.endDate}
+                                onChange={handleChange}
+                                required
+                                className="form-input ... h-12 ..."
+                            />
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={isLoading || isDownloading} // Se deshabilita con ambas cargas
+                            className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-primary/90 disabled:opacity-50"
+                        >
+                            {isLoading ? 'Consultando...' : 'Ver en Pantalla'}
+                        </button>
+                    </form>
+                    
+                    {/* 5. NUEVO BOTÓN DE EXCEL (Fuera del form) */}
                     <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-primary/90 disabled:opacity-50"
+                        type="button"
+                        onClick={handleExport}
+                        disabled={isDownloading || isLoading} // Se deshabilita con ambas cargas
+                        className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-verde-stock text-white text-base font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-opacity-90 disabled:opacity-50"
                     >
-                        {isLoading ? 'Generando...' : 'Generar Reporte'}
+                        <span className="material-symbols-outlined mr-2">download</span>
+                        {isDownloading ? 'Generando...' : 'Descargar Excel'}
                     </button>
-                </form>
+                </div>
             </article>
 
-            {/* 2. Sección de Resultados (se muestra solo si hay data) */}
+            {/* 2. Sección de Resultados (No cambia nada aquí) */}
             {reportData && !isLoading && (
                 <section className="flex flex-col gap-8">
                     {/* Tarjetas de Métricas */}
